@@ -1,0 +1,18 @@
+{
+  "port": 9999,
+  "db": {
+    "username": "root",
+    "password": "password",
+    "database": "tms",
+    "port": 3306,
+    "host": "localhost"
+  },
+  "ptc_auth_url": "http://localhost:5090/api/v1/login-code",
+  "refresh_token_keep_alive": {
+    "enabled": true,
+    "max_age_days": 28,
+    "interval_seconds": 300,
+    "tokens_per_interval": 30,
+    "request_sleep_seconds": 5
+  }
+}
