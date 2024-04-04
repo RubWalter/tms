@@ -4,6 +4,8 @@
     "axios": "^1.6.8",
     "config": "^3.3.11",
     "express": "^4.19.2",
+    "http-proxy-agent": "^7.0.2",
+    "https-proxy-agent": "^7.0.4",
     "mysql2": "^3.9.3",
     "pkce-challenge": "^4.1.0",
     "querystring": "^0.2.1"

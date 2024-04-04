@@ -1,6 +1,3 @@
-//TODO
-//proxy support
-
 import express from 'express';
 import pkceChallenge from "pkce-challenge";
 import axios from 'axios';
@@ -8,10 +5,54 @@ import querystring from 'querystring';
 import config from 'config';
 import DBController from './DBController.js';
 import Utils from './Utils.js'
+import fs from 'fs'
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { HttpProxyAgent } from 'http-proxy-agent';
 
-const ptc_auth_url = config.get('ptc_auth_url');
-const appPort = config.get('port');
 (async () => {
+  const ptc_auth_url = config.get('ptc_auth_url');
+  const appPort = config.get('port');
+  let proxyIndex = 0;
+  let proxies = [];
+  try {
+    proxies = fs.readFileSync('config/proxies.txt', 'utf8').split('\n');
+  }
+  catch(e) {}
+  
+  //remove empty lines
+  proxies = proxies.filter(proxy => {
+    if (proxy.trim()) {
+      return true;
+    }
+    return false;
+  });
+
+  function nextProxy() {
+    if (proxies.length == 0) {
+      return "";
+    }
+    let proxy = proxies[proxyIndex];
+    proxyIndex = (proxyIndex + 1) % proxies.length;
+    console.log(proxy);
+    return proxy;
+  }
+
+  function axiosWithProxy(proxy) {
+    let httpAgent = new HttpProxyAgent(proxy);
+    let httpsAgent = new HttpsProxyAgent(proxy);
+    let nextAxios = axios.create({
+      httpAgent: httpAgent,
+      httpsAgent: httpsAgent
+    });
+    return nextAxios;
+  }
+
+  //return an axios instance with proxy if available, otherwise a standard axios
+  function nextAxios() {
+    let proxy = nextProxy();
+    if (!proxy) return axios;
+    return axiosWithProxy(proxy);
+  }
 
   async function keepAliveToken(numberOfTokens) {
     console.log('Background refreshing started');
@@ -41,7 +82,8 @@ const appPort = config.get('port');
 
     let body;
     try {
-      body = await axios.post('https://access.pokemon.com/oauth2/token', querystring.stringify(params));
+      let nAxios = nextAxios();
+      body = await nAxios.post('https://access.pokemon.com/oauth2/token', querystring.stringify(params));
       if (body.data && body.data.access_token && body.data.refresh_token) {
         let access_token = body.data.access_token;
         let refresh_token = body.data.refresh_token;
@@ -122,11 +164,12 @@ const appPort = config.get('port');
       let body;
 
       try {
+        //no proxy here, not talking to ptc
         body = await axios.post(ptc_auth_url, {
           url: url,
           username: username,
           password: password,
-          proxy: ""
+          proxy: nextProxy()
         });
       } 
       catch (error) {
@@ -150,7 +193,8 @@ const appPort = config.get('port');
         let body2;
         
         try {
-          body2 = await axios.post('https://access.pokemon.com/oauth2/token', querystring.stringify(tmpParams));
+          let nAxios = nextAxios();
+          body2 = await nAxios.post('https://access.pokemon.com/oauth2/token', querystring.stringify(tmpParams));
 
           let access_token = body2.data.access_token;
           let refresh_token = body2.data.refresh_token;

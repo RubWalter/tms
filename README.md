@@ -12,8 +12,7 @@ Keep track of your PTC tokens so you don't have to make unncessary authentation 
 
 ### Instructions:
 
-- `git clone https://github.com/RubWalter/tms.git`
-- `cd tms && npm i`
+- `git clone https://github.com/RubWalter/tms.git && cd tms && npm i`
 - Create a new database in MySQL and import `sql/create.sql`
 - `cp config/default.sample.json config/default.json`
 - Make changes to `config/default.json`:
@@ -22,9 +21,16 @@ Keep track of your PTC tokens so you don't have to make unncessary authentation 
     - `refresh_token_keep_alive.enabled`: set to `true` to renew refresh tokens automatically before it expires.
     - `refresh_token_keep_alive.max_age_days`: only renew tokens older than xx days.
     - Please leave `interval_seconds`, `request_sleep_seconds` and `tokens_per_interval` as they are unless you have read the code and know what you're doing.
+- If you want to use proxies:
+    - `cp config/proxies.sample.txt config/proxies.txt`
+    - Fill in your proxies details. Proxies will be also be handed to Xilriws.
 - Run it: `node index.js`
 - If your MITM software asks for a url, use `http://IP_ADDRESS:9999/access_token`
 
 It's recommeded to run this via [pm2](https://pm2.keymetrics.io/).
 
 `pm2 start index.js --name tms`
+
+### Contact
+
+`rubw` on Discord, but don't expect me to handhold you. 
