@@ -53,6 +53,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
   function nextAxios() {
     let proxy = nextProxy();
     if (!proxy) return axios;
+    console.log(`Using proxy ${proxy} for the next request`);
     return axiosWithProxy(proxy);
   }
 
