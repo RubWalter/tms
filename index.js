@@ -179,7 +179,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
         console.log(error);
       }
 
-      if (body.data && body.data.login_code) {
+      if (body && body.data && body.data.login_code) {
         let login_code = body.data.login_code;
         console.log(`[${username}] Login code is ${login_code.substr(0,10)}....`);
         console.log(`[${username}] Exchanging for tokens`);
