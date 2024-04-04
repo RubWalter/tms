@@ -15,6 +15,7 @@ Keep track of your PTC tokens so you don't have to make unncessary authentation 
 - `git clone https://github.com/RubWalter/tms.git`
 - `cd tms && npm i`
 - Create a new database in MySQL and import `sql/create.sql`
+- `cp config/default.sample.json` `config/default.json`
 - Make changes to `config/default.json`:
     -  Fill in your database details
     -  `ptc_auth_url`: your Xilriws url
