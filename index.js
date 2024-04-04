@@ -100,7 +100,6 @@ const appPort = config.get('port');
       return;
     }    
     else if (user && user.refresh_token && user.last_refreshed > Utils.getUnixTime() - 30 * 86400) {
-      console.log(`[${username}] Trying refresh token`);
       let result = await refreshToken(user);
       if (result && result.access_token) {
         console.log(`[${username}] Returning access token`);
