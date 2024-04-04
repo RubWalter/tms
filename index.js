@@ -17,11 +17,14 @@ import { HttpProxyAgent } from 'http-proxy-agent';
   try {
     proxies = fs.readFileSync('config/proxies.txt', 'utf8').split('\n');
   }
-  catch(e) {}
+  catch(e) {
+    console.log(`Unable to parse proxies.txt, will not use any proxy`);
+  }
   
   //remove empty lines
   proxies = proxies.filter(proxy => {
     if (proxy.trim()) {
+      console.log(`Proxy: ${proxy}`);
       return true;
     }
     return false;
@@ -33,7 +36,6 @@ import { HttpProxyAgent } from 'http-proxy-agent';
     }
     let proxy = proxies[proxyIndex];
     proxyIndex = (proxyIndex + 1) % proxies.length;
-    console.log(proxy);
     return proxy;
   }
 
