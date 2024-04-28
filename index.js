@@ -168,12 +168,11 @@ import { HttpProxyAgent } from 'http-proxy-agent';
       let body;
 
       try {
-        //no proxy here, not talking to ptc
+        //not using proxy for xilriws anymore
         body = await axios.post(ptc_auth_url, {
           url: url,
           username: username,
-          password: password,
-          proxy: nextProxy()
+          password: password
         });
       } 
       catch (error) {
