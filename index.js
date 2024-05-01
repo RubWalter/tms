@@ -12,6 +12,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
 (async () => {
   const ptc_auth_url = config.get('ptc_auth_url');
   const appPort = config.get('port');
+  let isKeepingAlive = false;
   let proxyIndex = 0;
   let proxies = [];
   try {
@@ -58,6 +59,12 @@ import { HttpProxyAgent } from 'http-proxy-agent';
   }
 
   async function keepAliveToken(numberOfTokens) {
+    //avoid running multiple keep alive functions at once, due to misconfiguration or bad proxies
+    if (isKeepingAlive) {
+      console.log('Another instance of keep alive is running, aborting. Please check your default.json to make sure the values are appropriately configured and all the proxies are fast.')
+      return;
+    }    
+    isKeepingAlive = true;      
     console.log('Background refreshing started');
     let sleepSecond = config.get('refresh_token_keep_alive.request_sleep_seconds');
     let users = await dbController.getOldestTokens(config.get('refresh_token_keep_alive.tokens_per_interval'));
@@ -71,6 +78,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
         }
       }
     }
+    isKeepingAlive = false;
     console.log('Background refreshing ended');
   }
 
