@@ -246,7 +246,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
   app.listen(appPort);
   console.log(`Listening on port ${appPort}`);
 
-  //If enabled, try to refresh  30 tokens in 5 minutes interval. That's about a maximum of 8640 tokens per day. If you need more than that, reduce the interval and sleep time between requests. Please try to be sensible and do not flood PTC with requests.  
+  //If enabled, try to refresh 60 tokens in 5 minutes interval. That's about a maximum of 17280 tokens per day. If you need more than that, reduce the interval and sleep time between requests. Please try to be sensible and do not flood PTC with requests.  
   if (config.get('refresh_token_keep_alive.enabled')) {
     setInterval(() => {
       keepAliveToken('refresh_token_keep_alive.tokens_per_interval')
