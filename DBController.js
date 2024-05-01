@@ -86,7 +86,7 @@ function DBController() {
   }
 
   this.getOldestTokens = async(count) => {
-    let query = `SELECT * FROM accounts WHERE 1 ORDER BY last_refreshed DESC LIMIT ${count}`;
+    let query = `SELECT * FROM accounts WHERE last_refreshed != 0 ORDER BY last_refreshed ASC LIMIT ${count}`;
     let [rows, fields] = await self.pool.query(query);
     return rows;
   }
