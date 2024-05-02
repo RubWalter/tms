@@ -22,8 +22,7 @@ Keep track of your PTC tokens so you don't have to make unncessary authentation 
     - `refresh_token_keep_alive.max_age_days`: only renew tokens older than xx days.
     - Please leave `interval_seconds`, `request_sleep_seconds` and `tokens_per_interval` as they are unless you have read the code and know what you're doing.
 - If you want to use proxies:
-    - `cp config/proxies.sample.txt config/proxies.txt`
-    - Fill in your proxies details. Proxies will be also be handed to Xilriws.
+    - `cp config/proxies.sample.txt config/proxies.txt`    - Fill in your proxies details. Proxies will be also be handed to Xilriws.
 - Run it: `node index.js`
 - If your MITM software asks for a url, use `http://IP_ADDRESS:9999/access_token`
 
@@ -34,3 +33,8 @@ It's recommeded to run this via [pm2](https://pm2.keymetrics.io/).
 ### Contact
 
 `rubw` on Discord, but don't expect me to handhold you. 
+
+### Important note
+
+- The refresh tokens are valid for 30 days from the `last_refreshed` timestamp, but it can be renewed indefintely if used within that period. Please keep TMS running even if your MITM/controller is not running to keep tokens alive as long as possible.
+- Do not log in with the accounts anywhere else, manually or automatic. It will invalidate that account's token in TMS.
