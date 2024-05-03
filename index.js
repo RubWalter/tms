@@ -8,7 +8,6 @@ import Utils from './Utils.js'
 import fs from 'fs'
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { HttpProxyAgent } from 'http-proxy-agent';
-
 (async () => {
   const ptc_auth_url = config.get('ptc_auth_url');
   const appPort = config.get('port');
@@ -171,7 +170,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
       console.log(`[${username}] Getting login code`);
       let challenge = await pkceChallenge(86);
 
-      let url = `https://access.pokemon.com/oauth2/auth?state=yWAw-S7ybrI4v4fG2RC_35Rg&scope=openid+offline+email+dob+pokemon_go+member_id+username&redirect_uri=https://www.pokemongolive.com/dl?app=pokemongo%26dl_action=OPEN_LOGIN&client_id=pokemon-go&response_type=code&code_challenge=${challenge.code_challenge}&code_challenge_method=S256`;
+      let url = `https://access.pokemon.com/oauth2/auth?state=${Utils.randomString(24)}&scope=openid+offline+email+dob+pokemon_go+member_id+username&redirect_uri=https://www.pokemongolive.com/dl?app=pokemongo%26dl_action=OPEN_LOGIN&client_id=pokemon-go&response_type=code&code_challenge=${challenge.code_challenge}&code_challenge_method=S256`;
 
       let body;
 
