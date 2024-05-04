@@ -1,0 +1,21 @@
+services:
+  tms: # Token management system for RDM
+    container_name: 'tms'
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    # ports:
+      # - "127.0.0.1:9999:9999"
+    volumes:
+      - ./config/default.json:/usr/src/app/config/default.json
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - db
+    shm_size: "100m"
+    logging:
+        driver: "json-file"
+        options:
+            max-file: "10"
+            max-size: "20m"
+    restart: unless-stopped
