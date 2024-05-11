@@ -14,6 +14,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
   let isKeepingAlive = false;
   let proxyIndex = 0;
   let proxies = [];
+  let ongoingRefreshingAccounts = {};
   try {
     proxies = fs.readFileSync('config/proxies.txt', 'utf8').split('\n');
   }
@@ -81,8 +82,30 @@ import { HttpProxyAgent } from 'http-proxy-agent';
     console.log('Background refreshing ended');
   }
 
+  function lockAccount(username) {
+    ongoingRefreshingAccounts[username] = 1;
+  }
+
+  function unlockAccount(username) {
+    delete(ongoingRefreshingAccounts[username]);
+  }
+
+  function isAccountLocked(username) {
+    if (ongoingRefreshingAccounts[username]) return true;
+    return false;
+  }
+
   async function refreshToken(user) {
     console.log(`[${user.username}] Trying refresh token`);
+    
+    //prevent 1 account being used by multiple devices at the same time
+    if (isAccountLocked(user.username)) {
+      console.log(`[${user.username}] is currently refreshing its token, ignore this attempt`);
+      return;
+    }
+
+    lockAccount(user.username);
+    
     let params = {
       client_id: 'pokemon-go',
       refresh_token: user.refresh_token,
@@ -105,8 +128,12 @@ import { HttpProxyAgent } from 'http-proxy-agent';
 
         console.log(`[${user.username}] Saving new refresh token`);
         await dbController.saveRefreshTokenForUser(user.username, refresh_token);
-
+        unlockAccount(user.username);
         return {access_token: access_token};
+      }
+      else {
+        unlockAccount(user.username);
+        console.log(`[${user.username}] Unabled to refresh token`);
       }
     }
     catch (error) {
@@ -119,6 +146,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
         console.log(`[${user.username}] Unabled to refresh token`);
         console.log(error);
       }
+      unlockAccount(user.username);
       return;
     }
   }
