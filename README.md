@@ -2,7 +2,7 @@
 
 ## A centralised system to manage PTC tokens
 
-Keep track of your PTC tokens so you don't have to make unncessary authentation requests.
+Keep track of your PTC tokens so you don't have to make unnecessary authentication requests.
 
 ### Requirements:
 
