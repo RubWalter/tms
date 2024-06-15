@@ -1,6 +1,7 @@
 import config from 'config';
 import mysql from 'mysql2/promise';
-import Utils from './Utils.js'
+import Utils from './Utils.js';
+import fs from 'fs';
 
 function DBController() {
   let self = this;
@@ -24,6 +25,7 @@ function DBController() {
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 0,
+      multipleStatements: true
     });
   }
 
@@ -96,7 +98,44 @@ function DBController() {
     return rows;
   }
 
+  this.isTableAvailable = async (tableName) => {
+    let query = 'SELECT * FROM information_schema.tables WHERE ? AND ? LIMIT 1;'
+    let [rows, fields] = await self.pool.query(query, [
+      {
+        table_schema: config.get('db.database')
+      },
+      {
+        table_name : tableName
+      }
+    ])
+    return (rows.length > 0);
+  }
 
+  this.fixMigrationMissing = async () => {
+    let query = fs.readFileSync('sql/fix-missing-migration.sql', 'utf8');
+    await self.pool.query(query);
+  }
+
+  this.getCurrentMigrationIndex = async () => {
+    let query = "SELECT migration_index FROM migrations LIMIT 1";
+    let [rows, fields] = await self.pool.query(query);
+    if (rows.length > 0) {
+      return rows[0].migration_index;
+    }
+  }
+
+  this.runMigration = async (migrationIndex) => {
+    let migrationPath = `migrations/${migrationIndex}.sql`;
+    let query = fs.readFileSync(migrationPath, 'utf8');
+    try {
+      await self.pool.query(query);
+    } 
+    catch (error) {
+      console.log('Migration error, exiting.');
+      console.log(error);
+      process.exit();
+    }
+  }
 
   this.createConnections();
 }

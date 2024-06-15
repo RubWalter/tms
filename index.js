@@ -172,8 +172,56 @@ import { HttpProxyAgent } from 'http-proxy-agent';
       return;
     }
   }
+
+  async function migrateDB() {
+    let availableMigrations = fs.readdirSync('migrations');
+    availableMigrations = availableMigrations.filter(file => {
+      return file.includes('.sql');
+    });
+
+    availableMigrations = availableMigrations.map(file => {
+      let [index] = file.split('.');
+      index = parseInt(index);
+      return index;
+    });
+
+    availableMigrations.sort((a,b) => {
+      return a - b;
+    });
+
+    //if accounts table is missing, this is the first run
+    let isAccountsTableAvailable = await dbController.isTableAvailable('accounts');
+    
+    if (!isAccountsTableAvailable) {
+      await dbController.runMigration(0);
+    }
+
+    //handle missing migration index (first version of tms)
+    let isMigrationsTableAvailable = await dbController.isTableAvailable('migrations');
+
+    if (!isMigrationsTableAvailable) {
+      //create migration table, set migration index to 0;
+      await dbController.fixMigrationMissing();
+    }
+
+    let currentMigrationIndex = await dbController.getCurrentMigrationIndex();
+
+    if (currentMigrationIndex === undefined) {
+      console.log('Something is wrong during migration, exiting.');
+      process.exit();
+    }
+
+    for (let i = 0; i < availableMigrations.length; ++i)  {
+      let migrationIndex = availableMigrations[i];
+      if (migrationIndex > currentMigrationIndex) {
+        console.log(`Run migration index ${migrationIndex}`);
+        await dbController.runMigration(migrationIndex);
+      }
+    }
+  }
   
   let dbController = new DBController();
+  await migrateDB();
   let app = new express();  
   app.use(express.json());  
   app.post('/access_token', async (req, res) => {
