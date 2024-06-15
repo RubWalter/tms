@@ -13,7 +13,6 @@ Keep track of your PTC tokens so you don't have to make unnecessary authenticati
 ### Instructions:
 
 - `git clone https://github.com/RubWalter/tms.git && cd tms && npm i`
-- Create a new database in MySQL and import `sql/create.sql`
 - `cp config/default.sample.json config/default.json`
 - Make changes to `config/default.json`:
     -  Fill in your database details
@@ -22,7 +21,8 @@ Keep track of your PTC tokens so you don't have to make unnecessary authenticati
     - `refresh_token_keep_alive.max_age_days`: only renew tokens older than xx days.
     - Please leave `interval_seconds`, `request_sleep_seconds` and `tokens_per_interval` as they are unless you have read the code and know what you're doing.
 - If you want to use proxies:
-    - `cp config/proxies.sample.txt config/proxies.txt`    - Fill in your proxies details. Proxies will be also be handed to Xilriws.
+    - `cp config/proxies.sample.txt config/proxies.txt`    
+    - Fill in your proxies details. Proxies will be also be handed to Xilriws.
 - Run it: `node index.js`
 - If your MITM software asks for a url, use `http://IP_ADDRESS:9999/access_token`
 
