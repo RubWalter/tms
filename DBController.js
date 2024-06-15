@@ -27,61 +27,66 @@ function DBController() {
     });
   }
 
-  this.getUser = async (username) => {
-    let query = 'SELECT * FROM accounts WHERE ? LIMIT 1';
-    let [rows, fields] = await self.pool.query(query, [{ username: username }]);
+  this.getUser = async (username, provider) => {
+    let query = 'SELECT * FROM accounts WHERE ? AND ? LIMIT 1';
+    let [rows, fields] = await self.pool.query(query, [{ username: username }, {provider: provider}]);
     if (rows[0]) {
       return rows[0];
     }
   }
 
-  this.saveAccessTokenForUser = async (username, access_token, expire_timestamp) => {
-    let query = "SELECT id FROM accounts WHERE ?";
-    let [rows, fields] = await self.pool.query(query, [{ username: username }]);
+  this.saveAccessTokenForUser = async (username, provider, access_token, expire_timestamp) => {
+    let query = "SELECT id FROM accounts WHERE ? AND ?";
+    let [rows, fields] = await self.pool.query(query, [{ username: username }, { provider: provider }]);
 
     if (!rows[0]) {
       query = 'INSERT INTO accounts SET ?';
       await self.pool.query(query, [{
         username: username,
+        provider: provider,
         access_token: access_token,
         access_token_expire_timestamp: expire_timestamp
       }]);
     }
     else {
-      let query = 'UPDATE accounts SET ? WHERE ?';
+      let query = 'UPDATE accounts SET ? WHERE ? AND ?';
       await self.pool.query(query, [
         { access_token: access_token, access_token_expire_timestamp: expire_timestamp },
-        { username: username }
+        { username: username },
+        { provider: provider }
       ]);
     }
   }
 
-  this.saveRefreshTokenForUser = async (username, refresh_token) => {
-    let query = "SELECT id FROM accounts WHERE ?";
-    let [rows, fields] = await self.pool.query(query, [{ username: username }]);
+  this.saveRefreshTokenForUser = async (username, provider, refresh_token) => {
+    let query = "SELECT id FROM accounts WHERE ? AND ?";
+    let [rows, fields] = await self.pool.query(query, [{ username: username }, { provider: provider }]);
 
     if (!rows[0]) {
       query = 'INSERT INTO accounts SET ?';
       await self.pool.query(query, [{
         username: username,
+        provider: provider,
         refresh_token: refresh_token,
         last_refreshed: Utils.getUnixTime()
       }])
     }
     else {
-      let query = 'UPDATE accounts SET ? WHERE ?';
+      let query = 'UPDATE accounts SET ? WHERE ? AND ?';
       await self.pool.query(query, [
         { refresh_token: refresh_token, last_refreshed: Utils.getUnixTime() },
-        { username: username }
+        { username: username },
+        { provider: provider }
       ]);
     }
   }
 
-  this.clearRefreshTokenForUser = async(username) => {
-    let query = 'UPDATE accounts SET ? WHERE ?';
+  this.clearRefreshTokenForUser = async (username, provider) => {
+    let query = 'UPDATE accounts SET ? WHERE ? AND ?';
     await self.pool.query(query, [
-      {refresh_token: "", last_refreshed: 0},
-      {username: username}
+      { refresh_token: "", last_refreshed: 0 },
+      { username: username },
+      { provider: provider }
     ]);
   }
 

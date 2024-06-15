@@ -9,6 +9,11 @@ import fs from 'fs'
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { HttpProxyAgent } from 'http-proxy-agent';
 (async () => {
+  let userAgentHeader = {
+    headers: {
+      'User-Agent': 'PokmonGO/0 CFNetwork/1410.1 Darwin/22.6.0'
+    }
+  };
   const ptc_auth_url = config.get('ptc_auth_url');
   const appPort = config.get('port');
   let isKeepingAlive = false;
@@ -82,71 +87,88 @@ import { HttpProxyAgent } from 'http-proxy-agent';
     console.log('Background refreshing ended');
   }
 
-  function lockAccount(username) {
-    ongoingRefreshingAccounts[username] = 1;
+  function lockAccount(username, provider) {
+    ongoingRefreshingAccounts[`${username}-${provider}`] = 1;
   }
 
-  function unlockAccount(username) {
-    delete(ongoingRefreshingAccounts[username]);
+  function unlockAccount(username, provider) {
+    delete(ongoingRefreshingAccounts[`${username}-${provider}`]);
   }
 
-  function isAccountLocked(username) {
-    if (ongoingRefreshingAccounts[username]) return true;
+  function isAccountLocked(username, provider) {
+    if (ongoingRefreshingAccounts[`${username}-${provider}`]) return true;
     return false;
   }
 
   async function refreshToken(user) {
-    console.log(`[${user.username}] Trying refresh token`);
-    
+    console.log(`[${user.username}][${user.provider}] Trying refresh token`);
+
     //prevent 1 account being used by multiple devices at the same time
-    if (isAccountLocked(user.username)) {
-      console.log(`[${user.username}] is currently refreshing its token, ignore this attempt`);
+    if (isAccountLocked(user.username, user.provider)) {
+      console.log(`[${user.username}][${user.provider}] is currently refreshing its token, ignore this attempt`);
       return;
     }
 
-    lockAccount(user.username);
-    
-    let params = {
-      client_id: 'pokemon-go',
-      refresh_token: user.refresh_token,
-      grant_type: "refresh_token",
-      redirect_uri: "https://www.pokemongolive.com/dl?app=pokemongo&dl_action=OPEN_LOGIN"
+    lockAccount(user.username, user.provider);
+
+    let params, url;
+    if (user.provider == 'ptc') {
+      params = {
+        client_id: 'pokemon-go',
+        refresh_token: user.refresh_token,
+        grant_type: "refresh_token",
+        redirect_uri: "https://www.pokemongolive.com/dl?app=pokemongo&dl_action=OPEN_LOGIN"
+      }
+
+      url = 'https://access.pokemon.com/oauth2/token';
+    }
+    else if (user.provider == 'nk') {
+      params = {
+        client_id: "pokemon-go",
+        client_secret: "AoPUaDBd3Jn3ah4NIDQRezdPzUfan3Lz",
+        grant_type: "refresh_token",
+        refresh_token: user.refresh_token
+      }
+      url = 'https://niantic.api.kws.superawesome.tv/oauth/token';
     }
 
     let body;
     try {
       let nAxios = nextAxios();
-      body = await nAxios.post('https://access.pokemon.com/oauth2/token', querystring.stringify(params));
+      body = await nAxios.post(url, querystring.stringify(params), userAgentHeader);
       if (body.data && body.data.access_token && body.data.refresh_token) {
         let access_token = body.data.access_token;
         let refresh_token = body.data.refresh_token;
         let expire_timestamp = Utils.getUnixTime() + body.data.expires_in;
-        console.log(`[${user.username}] Refreshed token successfully`);
+        console.log(`[${user.username}][${user.provider}] Refreshed token successfully`);
 
-        console.log(`[${user.username}] Saving access token`);
-        await dbController.saveAccessTokenForUser(user.username, access_token, expire_timestamp);
+        console.log(`[${user.username}][${user.provider}] Saving access token`);
+        await dbController.saveAccessTokenForUser(user.username, user.provider, access_token, expire_timestamp);
 
-        console.log(`[${user.username}] Saving new refresh token`);
-        await dbController.saveRefreshTokenForUser(user.username, refresh_token);
-        unlockAccount(user.username);
-        return {access_token: access_token};
+        console.log(`[${user.username}][${user.provider}]Saving new refresh token`);
+        await dbController.saveRefreshTokenForUser(user.username, user.provider, refresh_token);
+        unlockAccount(user.username, user.provider);
+        return {
+          access_token: access_token,
+          provider: user.provider
+        };
       }
       else {
-        unlockAccount(user.username);
-        console.log(`[${user.username}] Unabled to refresh token`);
+        unlockAccount(user.username, user.provider);
+        console.log(`[${user.username}][${user.provider}] Unabled to refresh token`);
       }
     }
     catch (error) {
       //remove refresh token if it's no longer valid
       if (error.response && error.response.data && (error.response.data.error == 'invalid_grant' || error.response.data.error == 'token_inactive')) {
-        await dbController.clearRefreshTokenForUser(user.username);
-        console.log(`[${user.username}] Refresh token is invalid, clearing from database`);
+        await dbController.clearRefreshTokenForUser(user.username, user.provider);
+        console.log(`[${user.username}][${user.provider}] Refresh token is invalid, clearing from database`);
       }
       else {
-        console.log(`[${user.username}] Unabled to refresh token`);
+        console.log(`[${user.username}][${user.provider}] Unabled to refresh token`);
         console.log(error);
       }
-      unlockAccount(user.username);
+      unlockAccount(user.username, user.provider);
       return;
     }
   }
@@ -157,6 +179,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
   app.post('/access_token', async (req, res) => {
     let username = req.body.username;
     let password = req.body.password;
+    let provider = req.body.provider;
 
     if (!username || !password) {
       console.log("Missing username or password!");
@@ -164,10 +187,15 @@ import { HttpProxyAgent } from 'http-proxy-agent';
       return;
     }
 
-    console.log(`[${username}] Starting`);
+    //default provider is ptc. will error out in the future if a provider is not provided
+    if (!provider) {
+      provider = 'ptc';
+    }
+
+    console.log(`[${username}][${provider}] Starting`);
 
     //check if we have existing refresh token
-    let user = await dbController.getUser(username);
+    let user = await dbController.getUser(username, provider);
 
     //temporarily disable token caching, sometimes pogo rejects a valid *old* token. TMS will always attempt to get a fresh token for now
     if (false && user && user.access_token && user.access_token_expire_timestamp > Utils.getUnixTime() + 300) {
@@ -183,88 +211,139 @@ import { HttpProxyAgent } from 'http-proxy-agent';
     else if (user && user.refresh_token && user.last_refreshed > Utils.getUnixTime() - 30 * 86400) {
       let result = await refreshToken(user);
       if (result && result.access_token) {
-        console.log(`[${username}] Returning access token`);
+        console.log(`[${username}][${provider}] Returning access token`);
         res.json({
-          access_token: result.access_token
+          access_token: result.access_token,
+          provider: provider
         });
         return;
       }
       else {
-        res.status(500).send(`[${username}] Unabled to refresh token`);
+        res.status(500).send(`[${username}][${provider}] Unabled to refresh token`);
         return;
       }
     }
     else {
-      console.log(`[${username}] Getting login code`);
-      let challenge = await pkceChallenge(86);
+      if (provider == 'ptc') {
+        console.log(`[${username}][${provider}] Getting login code`);
+        let challenge = await pkceChallenge(86);
 
-      let url = `https://access.pokemon.com/oauth2/auth?state=${Utils.randomString(24)}&scope=openid+offline+email+dob+pokemon_go+member_id+username&redirect_uri=https://www.pokemongolive.com/dl?app=pokemongo%26dl_action=OPEN_LOGIN&client_id=pokemon-go&response_type=code&code_challenge=${challenge.code_challenge}&code_challenge_method=S256`;
+        let url = `https://access.pokemon.com/oauth2/auth?state=${Utils.randomString(24)}&scope=openid+offline+email+dob+pokemon_go+member_id+username&redirect_uri=https://www.pokemongolive.com/dl?app=pokemongo%26dl_action=OPEN_LOGIN&client_id=pokemon-go&response_type=code&code_challenge=${challenge.code_challenge}&code_challenge_method=S256`;
 
-      let body;
+        let body;
 
-      try {
-        //no proxy here, not talking to ptc
-        body = await axios.post(ptc_auth_url, {
-          url: url,
-          username: username,
-          password: password,
-          proxy: nextProxy()
-        });
-      } 
-      catch (error) {
-        console.log(`[${username}] PTC Auth error`);
-        console.log(error);
-      }
-
-      if (body && body.data && body.data.login_code) {
-        let login_code = body.data.login_code;
-        console.log(`[${username}] Login code is ${login_code.substr(0,10)}....`);
-        console.log(`[${username}] Exchanging for tokens`);
-
-        let tmpParams = {
-          client_id: 'pokemon-go',
-          code: login_code,
-          code_verifier: challenge.code_verifier,
-          grant_type: 'authorization_code',
-          redirect_uri: 'https://www.pokemongolive.com/dl?app=pokemongo&dl_action=OPEN_LOGIN'
+        try {
+          //no proxy here, not talking to ptc
+          body = await axios.post(ptc_auth_url, {
+            url: url,
+            username: username,
+            password: password,
+            proxy: nextProxy()
+          });
+        }
+        catch (error) {
+          console.log(`[${username}][${provider}] PTC Auth error`);
+          console.log(error);
         }
 
-        let body2;
-        
-        try {
-          let nAxios = nextAxios();
-          body2 = await nAxios.post('https://access.pokemon.com/oauth2/token', querystring.stringify(tmpParams));
+        if (body && body.data && body.data.login_code) {
+          let login_code = body.data.login_code;
+          console.log(`[${username}][${provider}] Login code is ${login_code.substr(0, 10)}....`);
+          console.log(`[${username}][${provider}] Exchanging for tokens`);
 
-          let access_token = body2.data.access_token;
-          let refresh_token = body2.data.refresh_token;
-          let expire_timestamp = Utils.getUnixTime() + body2.data.expires_in;
+          let tmpParams = {
+            client_id: 'pokemon-go',
+            code: login_code,
+            code_verifier: challenge.code_verifier,
+            grant_type: 'authorization_code',
+            redirect_uri: 'https://www.pokemongolive.com/dl?app=pokemongo&dl_action=OPEN_LOGIN'
+          }
+
+          let body2;
+
+          try {
+            let nAxios = nextAxios();
+            body2 = await nAxios.post('https://access.pokemon.com/oauth2/token', querystring.stringify(tmpParams), userAgentHeader);
+
+            let access_token = body2.data.access_token;
+            let refresh_token = body2.data.refresh_token;
+            let expire_timestamp = Utils.getUnixTime() + body2.data.expires_in;
+
+            if (access_token) {
+              if (refresh_token) {
+                console.log(`[${username}][${provider}] Saving refresh token`);
+                await dbController.saveRefreshTokenForUser(username, provider, refresh_token);
+              }
+
+              console.log(`[${username}][${provider}] Saving access token`);
+              await dbController.saveAccessTokenForUser(username, provider, access_token, expire_timestamp);
+              console.log(`[${username}][${provider}] Returning access token`);
+              res.json({
+                access_token: access_token
+              });
+              return;
+            }
+            else {
+              console.log(`[${username}][${provider}] Unable to exchange tokens`);
+            }
+          }
+          catch (error) {
+            console.log(`[${username}][${provider}] Exchaging token error`);
+            console.log(error);
+          }
+        }
+        else {
+          console.log(`[${username}][${provider}] Unable to get login code`);
+        }
+      }
+      else if (provider == 'nk') {
+        let params = {
+          client_id: "pokemon-go",
+          client_secret: "AoPUaDBd3Jn3ah4NIDQRezdPzUfan3Lz",
+          grant_type: "password",
+          username: username,
+          password: password
+        }
+
+        let body;
+        try  {
+          let nAxios = nextAxios();
+          let headers = {};
+          headers['User-Agent'] = userAgentHeader['User-Agent'];
+          headers['Content-Type'] = 'application/x-www-form-urlencoded';
+          body = await nAxios.post('https://niantic.api.kws.superawesome.tv/oauth/token', params, {
+            headers: headers
+          });
+        }
+        catch (error) {
+          console.log(`[${username}][${provider}] Unable to get token`);
+          console.log(error);
+        }
+
+        if (body && body.data && body.data.access_token && body.data.refresh_token) {
+          let access_token = body.data.access_token;
+          let refresh_token = body.data.refresh_token;
+          let expire_timestamp = Utils.getUnixTime() + body.data.expires_in;
 
           if (access_token) {
-
             if (refresh_token) {
-              console.log(`[${username}] Saving refresh token`);
-              await dbController.saveRefreshTokenForUser(username, refresh_token);
+              console.log(`[${username}][${provider}] Saving refresh token`);
+              await dbController.saveRefreshTokenForUser(username, provider, refresh_token);
             }
 
-            console.log(`[${username}] Saving access token`);
-            await dbController.saveAccessTokenForUser(username, access_token, expire_timestamp);
-            console.log(`[${username}] Returning access token`);
+            console.log(`[${username}][${provider}] Saving access token`);
+            await dbController.saveAccessTokenForUser(username, provider, access_token, expire_timestamp);
+            console.log(`[${username}][${provider}] Returning access token`);
             res.json({
-              access_token: access_token
+              access_token: access_token,
+              provider: provider
             });
             return;
           }
           else {
-            console.log(`[${username}] Unable to exchange tokens`);
+            console.log(`[${username}][${provider}] Unable to get token (2)`);
           }
         }
-        catch (error) {
-          console.log(`[${username}] Exchaging token error`);
-          console.log(error);
-        }
-      }
-      else {
-        console.log(`[${username}] Unable to get login code`);
       }
     }
     res.json({});
