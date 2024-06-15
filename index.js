@@ -245,8 +245,8 @@ import { HttpProxyAgent } from 'http-proxy-agent';
     //check if we have existing refresh token
     let user = await dbController.getUser(username, provider);
 
-    //temporarily disable token caching, sometimes pogo rejects a valid *old* token. TMS will always attempt to get a fresh token for now
-    if (false && user && user.access_token && user.access_token_expire_timestamp > Utils.getUnixTime() + 300) {
+    //reuse token if possible
+    if (user && user.access_token && user.access_token_expire_timestamp > Utils.getUnixTime() + 600) {
       //return the last access_token if we have more than 5 minutes of use left
       let timeLeft = Math.floor((user.access_token_expire_timestamp - Utils.getUnixTime()) / 60);
       console.log(`[${username}] Returning existing access token with ${timeLeft} minutes left`);
