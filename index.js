@@ -292,6 +292,16 @@ import { HttpProxyAgent } from 'http-proxy-agent';
         catch (error) {
           console.log(`[${username}][${provider}] PTC Auth error`);
           console.log(error);
+          //pass along response error for ptc
+          if (error && error.response && error.response.status) {
+            let responseData = {};
+            res.status(error.response.status);
+            if (error.response.data) {
+              responseData = error.response.data;
+            }
+            res.json(responseData);
+            return;
+          }
         }
 
         if (body && body.data && body.data.login_code) {
