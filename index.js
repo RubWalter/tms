@@ -11,7 +11,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
 (async () => {
   let userAgentHeader = {
     headers: {
-      'User-Agent': 'PokmonGO/0 CFNetwork/1410.1 Darwin/22.6.0'
+      'User-Agent': 'PokmonGO/2 CFNetwork/1410.1 Darwin/22.6.0'
     }
   };
   const ptc_auth_url = config.get('ptc_auth_url');
@@ -102,6 +102,11 @@ import { HttpProxyAgent } from 'http-proxy-agent';
 
   async function refreshToken(user) {
     console.log(`[${user.username}][${user.provider}] Trying refresh token`);
+
+    if (user.provider == 'nk') {
+      console.log(`[${user.username}][${user.provider}] Refreshing token for NK is not supported`);
+      return;
+    }
 
     //prevent 1 account being used by multiple devices at the same time
     if (isAccountLocked(user.username, user.provider)) {
@@ -256,7 +261,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
       });
       return;
     }    
-    else if (user && user.refresh_token && user.last_refreshed > Utils.getUnixTime() - 30 * 86400) {
+    else if (provider != 'nk' && user && user.refresh_token && user.last_refreshed > Utils.getUnixTime() - 30 * 86400) {
       let result = await refreshToken(user);
       if (result && result.access_token) {
         console.log(`[${username}][${provider}] Returning access token`);
@@ -357,7 +362,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
       else if (provider == 'nk') {
         let params = {
           client_id: "pokemon-go",
-          client_secret: "AoPUaDBd3Jn3ah4NIDQRezdPzUfan3Lz",
+          // client_secret: "AoPUaDBd3Jn3ah4NIDQRezdPzUfan3Lz",
           grant_type: "password",
           username: username,
           password: password
@@ -367,9 +372,11 @@ import { HttpProxyAgent } from 'http-proxy-agent';
         try  {
           let nAxios = nextAxios();
           let headers = {};
-          headers['User-Agent'] = userAgentHeader['User-Agent'];
+          headers['User-Agent'] = userAgentHeader.headers['User-Agent'];
           headers['Content-Type'] = 'application/x-www-form-urlencoded';
-          body = await nAxios.post('https://niantic.api.kws.superawesome.tv/oauth/token', params, {
+          headers['Authorization'] = 'Basic cG9rZW1vbi1nbzpISURERU5DTElFTlRTRUNSRVQ=';
+
+          body = await nAxios.post('https://pgorelease.nianticlabs.com/plfe/superawesomeauthproxy', params, {
             headers: headers
           });
         }
@@ -379,6 +386,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
         }
 
         if (body && body.data && body.data.access_token && body.data.refresh_token) {
+
           let access_token = body.data.access_token;
           let refresh_token = body.data.refresh_token;
           let expire_timestamp = Utils.getUnixTime() + body.data.expires_in;
