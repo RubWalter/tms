@@ -129,7 +129,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
         grant_type: "refresh_token",
         refresh_token: user.refresh_token
       }
-      url = 'https://niantic.api.kws.superawesome.tv/oauth/token';
+      url = 'https://api.niantic.kidswebservices.com/oauth/token';
     }
 
     let body;
@@ -369,7 +369,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
           let headers = {};
           headers['User-Agent'] = userAgentHeader['User-Agent'];
           headers['Content-Type'] = 'application/x-www-form-urlencoded';
-          body = await nAxios.post('https://niantic.api.kws.superawesome.tv/oauth/token', params, {
+          body = await nAxios.post('https://api.niantic.kidswebservices.com/oauth/token', params, {
             headers: headers
           });
         }
